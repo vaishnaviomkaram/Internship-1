@@ -1,0 +1,27 @@
+1st week Progress - 
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+created an ingestion.py file , initialized the document processing module and defined core requirements for data ingestion.
+
+Monday – Project Setup & Architecture 
+Initialized the document processing module and defined core requirements for data ingestion. 
+Created the foundation for the DocumentProcessor class. Configured environment dependencies, targeting PyMuPDF for PDF extraction and langchain-text-splitters for structural text handling. 
+
+Tuesday – PDF Text Extraction 
+Implemented the core PDF loading and parsing mechanism. Developed the load_pdf method using fitz (PyMuPDF) to handle page-by-page text extraction.  Added validation to skip empty pages and integrated error handling for missing files or corrupted data.  
+Appended metadata (source filename and 1-indexed page numbers) directly to each page's extracted text to ensure citation tracking downstream.
+
+Wednesday – Semantic Chunking Strategy
+Developed the text splitting architecture to prepare data for vector embedding.  
+Integrated LangChain's RecursiveCharacterTextSplitter.  Configured customizable parameters for chunk_size and chunk_overlap to optimize context retention.  Implemented structural splitting logic (paragraphs ---> sentences ---> words) to keep semantic blocks together.  
+
+Thursday – Metadata Preservation & IntegrationTask: Linked the extraction engine with the chunking system. 
+Built the chunk_documents pipeline.  Ensured that parent page metadata is duplicated and preserved across all child chunks during the splitting process. 
+
+
+Friday – Local Ingestion Testing & ValidationTask:
+Created a local test suite to verify the ingestion pipeline end-to-end.  
+Added a __main__ execution block for sandboxed testing.  Simulated data ingestion using a sample textbook path (../data/sample_textbook.pdf).  Verified successful pipeline output via console logs displaying chunk counts and metadata validation. 
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
