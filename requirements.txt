@@ -1,0 +1,2 @@
+pymupdf>=1.23.26
+langchain-text-splitters==0.0.1
