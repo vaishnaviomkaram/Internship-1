@@ -27,4 +27,4 @@ Added a __main__ execution block for sandboxed testing.  Simulated data ingestio
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 2nd Week Progress - 
-seperating the logic of chunking , embedding and retrieval into modules and creating a rag pipeline , also uploaded an empty sample.txt (will be replaced with a pdf for testing) and made updates to requirements needed , included pytorch transformers libraries for embeddings aswell .
+seperating the logic of chunking , embedding and retrieval into modules and creating a rag pipeline and also using chromadb to store the chunking and vectors locally for retrieving (even tested on huggingface) , also uploaded an empty sample.txt (will be replaced with a pdf for testing) and made updates to requirements needed , included pytorch transformers libraries for embeddings aswell .
