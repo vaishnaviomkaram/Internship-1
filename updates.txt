@@ -1,30 +1,48 @@
-1st week Progress - 
+0th week Progress - 
 
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-created an ingestion.py file , initialized the document processing module and defined core requirements for data ingestion.
+Created an ingestion.py file, initialized the document processing module and defined core requirements for data ingestion.
 
-Monday – Project Setup & Architecture 
+Monday (22 June 2026) – Project Setup & Architecture 
 Initialized the document processing module and defined core requirements for data ingestion. 
 Created the foundation for the DocumentProcessor class. Configured environment dependencies, targeting PyMuPDF for PDF extraction and langchain-text-splitters for structural text handling. 
 
-Tuesday – PDF Text Extraction 
-Implemented the core PDF loading and parsing mechanism. Developed the load_pdf method using fitz (PyMuPDF) to handle page-by-page text extraction.  Added validation to skip empty pages and integrated error handling for missing files or corrupted data.  
+Tuesday (23 June 2026) – PDF Text Extraction 
+Implemented the core PDF loading and parsing mechanism. Developed the load_pdf method using fitz (PyMuPDF) to handle page-by-page text extraction. Added validation to skip empty pages and integrated error handling for missing files or corrupted data.  
 Appended metadata (source filename and 1-indexed page numbers) directly to each page's extracted text to ensure citation tracking downstream.
 
-Wednesday – Semantic Chunking Strategy
+Wednesday (24 June 2026) – Semantic Chunking Strategy
 Developed the text splitting architecture to prepare data for vector embedding.  
-Integrated LangChain's RecursiveCharacterTextSplitter.  Configured customizable parameters for chunk_size and chunk_overlap to optimize context retention.  Implemented structural splitting logic (paragraphs ---> sentences ---> words) to keep semantic blocks together.  
+Integrated LangChain's RecursiveCharacterTextSplitter. Configured customizable parameters for chunk_size and chunk_overlap to optimize context retention. Implemented structural splitting logic (paragraphs ---> sentences ---> words) to keep semantic blocks together.  
 
-Thursday – Metadata Preservation & IntegrationTask: Linked the extraction engine with the chunking system. 
-Built the chunk_documents pipeline.  Ensured that parent page metadata is duplicated and preserved across all child chunks during the splitting process. 
+Thursday (25 June 2026) – Metadata Preservation & Integration
+Task: Linked the extraction engine with the chunking system. 
+Built the chunk_documents pipeline. Ensured that parent page metadata is duplicated and preserved across all child chunks during the splitting process.  
 
-
-Friday – Local Ingestion Testing & ValidationTask:
-Created a local test suite to verify the ingestion pipeline end-to-end.  
-Added a __main__ execution block for sandboxed testing.  Simulated data ingestion using a sample textbook path (../data/sample_textbook.pdf).  Verified successful pipeline output via console logs displaying chunk counts and metadata validation. 
-
+Friday (26 June 2026) – Local Ingestion Testing & Validation
+Task: Created a local test suite to verify the ingestion pipeline end-to-end.  
+Added a __main__ execution block for sandboxed testing. Simulated data ingestion using a sample textbook path (../data/sample_textbook.pdf). Verified successful pipeline output via console logs displaying chunk counts and metadata validation. 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-2nd Week Progress - 
-seperating the logic of chunking , embedding and retrieval into modules and creating a rag pipeline and also using chromadb to store the chunking and vectors locally for retrieving (even tested on huggingface) , also uploaded an empty sample.txt (will be replaced with a pdf for testing) and made updates to requirements needed , included pytorch transformers libraries for embeddings aswell .
+1st Week Progress - 
+Separating the logic of chunking, embedding and retrieval into modules and creating a RAG pipeline and also using chromadb to store the chunking and vectors locally for retrieving (even tested on huggingface), also uploaded an empty sample.txt (will be replaced with a pdf for testing) and made updates to requirements needed, included pytorch transformers libraries for embeddings as well.
+
+Monday (29 June 2026) – Modularization & Refactoring
+Began separating the monolithic ingestion logic into dedicated, clean modules. Split tasks into distinct modular files: chunking.py, embedding.py, and retrieval.py to establish a cleaner architecture for the RAG pipeline.
+
+Tuesday (30 June 2026) – Local Vector Store Configuration
+Integrated ChromaDB to serve as the local vector repository engine. Configured a persistent client configuration to securely save generated semantic text chunks and their matching dense vectors locally for future retrieval operations.
+
+Wednesday (01 July 2026) – Embedding Framework & PyTorch Setup
+Included PyTorch and Hugging Face transformers libraries for local embeddings generation. Loaded open-source embedding models (like sentence-transformers) and tested mapping text fields into dense numerical arrays locally on system resources.
+
+Thursday (02 July 2026) – Core RAG Pipeline Construction & Remote Testing
+Tied the chunking, embedding, and retrieval modules together to build the base RAG pipeline infrastructure. Executed similarity query tracking tests against the local database, validating the retrieval setup (even testing processing behaviors via Hugging Face models).
+
+Friday (03 July 2026) – Harness Environment & Dependency Calibration
+Uploaded an empty sample.txt placeholder file to the workspace data root to serve as a lightweight testing harness (to be swapped with a real textbook PDF later). Formally updated the project requirements document to lock down new package dependencies.
+
+
+Saturday (04 July 2026) - Week 1 deliverables submission
+Uploaded all the week 1 deliverables in the form of docs/design_doc.md , README.md and raised the issue on github as mentioned in the internship docs 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
