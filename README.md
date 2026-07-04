@@ -8,6 +8,17 @@
 
 ---
 
+## 🧠 What I Learned This Week
+
+* **Citation Integrity Requires Early Mapping:** I learned that tracking inline citations downstream depends entirely on preserving document structures immediately during ingestion. By injecting 1-indexed page markers directly into the raw dictionary layers using `PyMuPDF` (on Tuesday), I ensured that when the text is split later, every single child chunk inherits its exact parent page number.
+* **Semantic Boundaries > Arbitrary Cutoffs:** I initially thought chunking just meant splitting text every 1,000 characters. By implementing LangChain's `RecursiveCharacterTextSplitter` (on Wednesday), I learned how to cascade through structural delimiters (`\n\n`, then `\n`, then spaces). This minimizes semantic fracture—keeping full paragraphs and sentences together so the embedding model actually understands the context.
+* **The Pitfalls of "Dirty" Document Layouts:** Real-world PDFs are messy. They contain blank pages, weird structural layouts, and invisible whitespace characters. I learned that introducing strict `.strip()` validation and skipping empty pages during the extraction phase prevents empty or useless chunks from bloating the vector index.
+* **Modularization and Local Persistence:** Moving from a single massive script to a modular architecture (`document_processor.py`, `vector_store.py`, `rag_pipeline.py`) made testing infinitely easier. Furthermore, pivoting to **ChromaDB** taught me how local vector persistence works. Instead of re-embedding the document every time the script runs, the data is stored locally and simply retrieved, saving massive amounts of compute time.
+* **The Necessity of Hybrid Retrieval:** I realized that pure vector similarity (Dense search via BGE-Small) is great for conceptual questions but terrible at finding specific variable names or exact terminology. Wiring up the LangChain `EnsembleRetriever` taught me how to marry dense semantic search with sparse lexical search (BM25) to get the best of both worlds.
+
+
+---
+
 ## 🔗 Live Links & Demos
 
 * **Live Deployment URL:** *[To be added in Week 4]*
@@ -91,15 +102,6 @@ The primary data corpus consists of local PDF documents (e.g., academic textbook
 
 ---
 
-## 🧠 What I Learned This Week
-
-- **Citation Integrity Requires Early Mapping:** I learned that tracking inline citations downstream depends entirely on preserving document structures immediately during ingestion. By injecting 1-indexed page markers directly into raw dictionary layers using PyMuPDF, data loss is prevented when text splitters chunk pages down.
-
-- **Semantic Boundaries Matter:** Instead of arbitrary window cutoffs, using LangChain's `RecursiveCharacterTextSplitter` cascades through structural delimiters (`\n\n`, `\n`). This minimizes semantic fracture and keeps concepts together for better embedding quality.
-
-- **The Power of Hybrid Retrieval:** Pure vector similarity can sometimes miss explicit keywords. By separating the retrieval logic and implementing LangChain's `EnsembleRetriever`, I was able to marry dense semantic search (ChromaDB + BGE Embeddings) with sparse lexical search (BM25) for highly accurate context retrieval.
-
----
 
 ## 📜 Architecture Decision Records (ADRs)
 
