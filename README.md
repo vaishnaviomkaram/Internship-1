@@ -1,583 +1,138 @@
-# Internship-1
-# AI-Powered Document Question Answering System (RAG)
+# 📚 AskMyBook: AI-Powered Document Q&A System
 
-## Overview
+> *An intelligent, context-aware document assistant that uses Retrieval-Augmented Generation (RAG) to deliver precise, citation-backed answers from isolated PDF corpora.*
 
-This project implements a Retrieval-Augmented Generation (RAG) pipeline that allows users to upload documents and ask natural language questions about their contents.
-
-Instead of relying solely on a Large Language Model's training data, the system retrieves relevant information from uploaded documents and uses that context to generate accurate and grounded answers.
-
-The application is designed to demonstrate practical skills in:
-
-* Natural Language Processing (NLP)
-* Large Language Models (LLMs)
-* Retrieval-Augmented Generation (RAG)
-* Vector Databases
-* Information Retrieval
-* API Integration
-* Full-Stack AI Application Development
-* Deployment and MLOps Fundamentals
+**Author:** Vaishnavi  
+**Segment:** Foundations of Applied Machine Learning  
+**Problem Statement Code:** I2 (Document Q&A — RAG over a Focused Corpus)  
 
 ---
 
-# Problem Statement
+## 🔗 Live Links & Demos
 
-Students, researchers, and professionals often work with large collections of PDFs, notes, reports, and academic materials.
-
-Finding specific information manually is time-consuming.
-
-This project solves that problem by enabling users to:
-
-* Upload documents
-* Ask questions in plain English
-* Receive context-aware answers sourced directly from the uploaded files
+* **Live Deployment URL:** *[To be added in Week 4]*
+* **Loom Walkthrough:** *[To be added in Week 4]*
 
 ---
 
-# Project Architecture
+## 🎯 Problem Statement
 
-User Uploads PDF Documents
+Manually searching through massive academic textbooks, research papers, or regulatory manuals is highly inefficient. Traditional keyword indexing misses semantic context and intent, while generic Large Language Models (LLMs) frequently hallucinate information when answering domain-specific questions.
 
-↓
-
-Document Loader
-
-↓
-
-Text Extraction
-
-↓
-
-Text Chunking
-
-↓
-
-Embedding Generation
-
-↓
-
-Vector Database Storage
-
-↓
-
-User Query
-
-↓
-
-Query Embedding
-
-↓
-
-Similarity Search
-
-↓
-
-Relevant Chunks Retrieved
-
-↓
-
-LLM Receives Context
-
-↓
-
-Generated Answer Returned
+**AskMyBook** solves this by bridging the gap between static documents and generative AI. It converts long-form PDFs into a highly structured local vector index. When a user asks a question, the system uses a dual-layer hybrid search mechanism to retrieve the most relevant text chunks and forces the LLM to answer *only* using that retrieved context, strictly enforcing inline page citations.
 
 ---
 
-# Features
+## 🏗️ Architecture Diagram
 
-## Document Upload
+```text
+[PDF Upload] ➔ [PyMuPDF Page Extractor] ➔ [Metadata Tagging (Filename + Page #)]
+                                                    │
+                                                    ▼
+[User UI] ➔ [Query Vector]            [LangChain Recursive Text Splitting]
+    │             │                                 │
+    ▼             ▼                                 ▼
+[Answer] ◀─ [Gemini LLM] ◀─ [Ensemble Retriever (Chroma Dense + BM25 Sparse)]
 
-Users can upload one or more PDF files.
+```
 
-Supported formats:
 
-* PDF
 
-Future Extensions:
+# Document QA RAG
+## 🛠️ Technology Stack
+| Component | Choice | Why |
+| :--- | :--- | :--- |
+| **Language** | Python 3.10+ | Ecosystem standard for data pipelines and machine learning. |
+| **PDF Extraction** | PyMuPDF (fitz) | High-speed, granular extraction perfect for attaching 1-indexed page numbers. |
+| **Chunking** | LangChain Text Splitters | `RecursiveCharacterTextSplitter` preserves semantic blocks and paragraph structures. |
+| **Embeddings** | HuggingFace (BGE-Small) | Lightweight, highly accurate local open-source embeddings. |
+| **Vector DB** | ChromaDB | Developer-friendly local persistence engine optimized for metadata filtering. |
+| **Retriever** | EnsembleRetriever | Combines 50% dense vector search (semantic) with 50% BM25 (sparse keyword). |
+| **LLM Engine** | Gemini 1.5 Flash | Ultra-low latency, 100% free tier, and exceptional at following strict guardrails. |
+| **Frontend UI** | Streamlit | Rapid prototyping for data applications. |
+## 🏁 Quickstart
 
-* DOCX
-* TXT
-* PPTX
-* HTML
+### Prerequisites
 
----
+- Python 3.10 or higher
+- Git
 
-## Intelligent Retrieval
+### 1. Install
 
-The system searches through uploaded documents and retrieves only the most relevant content before generating a response.
+Clone the repository and install the required dependencies:
 
-Benefits:
+```bash
+git clone https://github.com/vaishnaviomkaram/Internship-1
+pip install -r requirements.txt
+```
 
-* Reduced hallucinations
-* Improved accuracy
-* Context-aware answers
+### 2. Run Local Data Ingestion (Week 1 & 2 Pipeline)
 
----
+Place a sample PDF in the `data/` folder (e.g., `sample_textbook.pdf`), then execute the ingestion script to parse, chunk, and embed the document:
 
-## Conversational Question Answering
+```bash
+python src/ingestion.py
+```
 
-Users can ask questions such as:
+### 3. Test the Retrieval Pipeline
 
-* What is Bayes Theorem?
-* Explain Unit 4 topics.
-* What are the attendance requirements?
-* Summarize Chapter 3.
+> **Note:** The frontend UI is currently under development. To test the core extraction logic:
 
----
-
-## Source Attribution
-
-The application displays:
-
-* Answer
-* Source document
-* Retrieved text chunks
-
-This increases trust and transparency.
-
----
-
-# Technology Stack
-
-## Programming Language
-
-Python
-
-## AI Framework
-
-LangChain
-
-## Embedding Model
-
-Google Embeddings
-
-or
-
-OpenAI Embeddings
-
-## Vector Database
-
-FAISS
-
-## Large Language Model
-
-Gemini Pro
-
-or
-
-OpenAI GPT
-
-## Frontend
-
-Streamlit
-
-## Version Control
-
-Git & GitHub
+```bash
+python src/ingestion.py
+python src/rag_pipeline.py
+```
 
 ---
 
-# Project Structure
+## 📁 Data Sources
 
-project-root/
-
-│
-
-├── data/
-
-│ ├── documents/
-
-│ └── processed/
-
-│
-
-├── vectorstore/
-
-│ └── faiss_index/
-
-│
-
-├── src/
-
-│ ├── document_loader.py
-
-│ ├── text_splitter.py
-
-│ ├── embeddings.py
-
-│ ├── vector_store.py
-
-│ ├── retriever.py
-
-│ ├── rag_pipeline.py
-
-│ └── chatbot.py
-
-│
-
-├── app.py
-
-│
-
-├── requirements.txt
-
-│
-
-├── README.md
-
-│
-
-└── .gitignore
+The primary data corpus consists of local PDF documents (e.g., academic textbooks, research papers) placed into the `data/` directory. The system does not rely on external internet searches, keeping the generation boundary strictly confined to the uploaded documents.
 
 ---
 
-# Workflow Explanation
+## 🧠 What I Learned This Week
 
-## Step 1: Load Documents
+- **Citation Integrity Requires Early Mapping:** I learned that tracking inline citations downstream depends entirely on preserving document structures immediately during ingestion. By injecting 1-indexed page markers directly into raw dictionary layers using PyMuPDF, data loss is prevented when text splitters chunk pages down.
 
-Purpose:
+- **Semantic Boundaries Matter:** Instead of arbitrary window cutoffs, using LangChain's `RecursiveCharacterTextSplitter` cascades through structural delimiters (`\n\n`, `\n`). This minimizes semantic fracture and keeps concepts together for better embedding quality.
 
-Extract text from uploaded PDF files.
-
-Tools:
-
-* PyPDFLoader
-* PDFPlumber
-
-Process:
-
-1. Read uploaded PDFs
-2. Extract raw text
-3. Store extracted content
-
-Output:
-
-Raw document text
+- **The Power of Hybrid Retrieval:** Pure vector similarity can sometimes miss explicit keywords. By separating the retrieval logic and implementing LangChain's `EnsembleRetriever`, I was able to marry dense semantic search (ChromaDB + BGE Embeddings) with sparse lexical search (BM25) for highly accurate context retrieval.
 
 ---
 
-## Step 2: Text Chunking
+## 📜 Architecture Decision Records (ADRs)
 
-Purpose:
-
-Large documents exceed LLM token limits.
-
-Solution:
-
-Break documents into smaller chunks.
-
-Example:
-
-Chunk Size = 1000 characters
-
-Chunk Overlap = 200 characters
-
-Tools:
-
-RecursiveCharacterTextSplitter
-
-Output:
-
-Multiple smaller text chunks
+- **ADR-001:** Vector Database Selection — *Drafting*
+- **ADR-002:** Retrieval Engine Design — *Drafting*
+- **ADR-003:** LLM Engine Selection — *Drafting*
 
 ---
 
-## Step 3: Generate Embeddings
+## 🚀 Upcoming: The Mini-Extension (Week 3)
 
-Purpose:
+### Compare Two Documents
 
-Convert text into numerical vector representations.
-
-Example:
-
-Text:
-
-"Machine Learning is a subset of Artificial Intelligence"
-
-↓
-
-Embedding:
-
-[0.127, -0.893, 0.451, ...]
-
-These vectors capture semantic meaning.
-
-Tools:
-
-* Google Embeddings
-* OpenAI Embeddings
-
-Output:
-
-Vector representations
+The system will be upgraded to support multi-document reasoning. Users will be able to upload two distinct PDFs (e.g., two research papers) and query the system to retrieve, compare, and contrast information across both sources simultaneously.
 
 ---
 
-## Step 4: Store Embeddings
+## ⚠️ Known Limitations
 
-Purpose:
-
-Store vectors efficiently for retrieval.
-
-Tool:
-
-FAISS
-
-Why FAISS?
-
-* Fast similarity search
-* Lightweight
-* Easy integration
-
-Output:
-
-Vector Index
+- Currently optimized for text-heavy PDFs; complex tables or image-based scans (requiring OCR) may lose formatting fidelity during extraction.
+- The local embedding model (BGE-Small) is highly efficient but may require hyperparameter tuning for highly specialized medical or legal corpora.
 
 ---
 
-## Step 5: User Query Processing
+## 🔮 What I'd Do in 3rd Year
 
-User asks:
+This foundational project is designed to scale into the 3rd-year **E3 (Enterprise Unstructured Data RAG)** problem statement.
 
-"What topics are covered in Unit 3?"
-
-The query is converted into an embedding vector.
-
-Output:
-
-Query Vector
+> **View the full roadmap here:** *3rd Year Roadmap (Coming Soon)*
 
 ---
 
-## Step 6: Similarity Search
+## 📄 License & Acknowledgements
 
-Purpose:
-
-Find document chunks most relevant to the query.
-
-FAISS calculates similarity between:
-
-* Query Vector
-* Stored Document Vectors
-
-Output:
-
-Top K relevant chunks
-
-Example:
-
-K = 4
-
----
-
-## Step 7: Context Retrieval
-
-Retrieved chunks are combined.
-
-Example:
-
-Chunk 1
-
-Chunk 2
-
-Chunk 3
-
-Chunk 4
-
-↓
-
-Context Package
-
-This context is sent to the LLM.
-
----
-
-## Step 8: Answer Generation
-
-Prompt Template:
-
-You are a helpful assistant.
-
-Answer the question using ONLY the provided context.
-
-Context:
-{retrieved_context}
-
-Question:
-{user_question}
-
-Answer:
-
-The LLM generates a grounded response.
-
-Output:
-
-Final Answer
-
----
-
-# Implementation Modules
-
-## document_loader.py
-
-Responsibilities:
-
-* Load PDFs
-* Extract text
-* Validate files
-
----
-
-## text_splitter.py
-
-Responsibilities:
-
-* Chunk documents
-* Manage overlap
-* Optimize retrieval
-
----
-
-## embeddings.py
-
-Responsibilities:
-
-* Generate embeddings
-* Handle embedding API calls
-
----
-
-## vector_store.py
-
-Responsibilities:
-
-* Create FAISS index
-* Save vector database
-* Load vector database
-
----
-
-## retriever.py
-
-Responsibilities:
-
-* Similarity search
-* Top-K retrieval
-
----
-
-## rag_pipeline.py
-
-Responsibilities:
-
-* Connect retriever
-* Connect LLM
-* Generate answers
-
----
-
-## chatbot.py
-
-Responsibilities:
-
-* User interaction
-* Query handling
-* Response formatting
-
----
-
-# Streamlit User Interface
-
-Main Components:
-
-## Sidebar
-
-* Upload Documents
-* Process Documents
-* Clear Database
-
-## Main Window
-
-* Question Input
-* Answer Display
-* Retrieved Sources
-
----
-
-# Future Enhancements
-
-## Multi-PDF Comparison
-
-Compare information across documents.
-
----
-
-## Conversation Memory
-
-Remember previous user questions.
-
----
-
-## Hybrid Search
-
-Combine:
-
-* Semantic Search
-* Keyword Search
-
----
-
-## Citation Generation
-
-Display exact page numbers used.
-
----
-
-## Voice Interface
-
-Speech-to-text question input.
-
----
-
-## Cloud Deployment
-
-Deploy on:
-
-* AWS
-* Azure
-* GCP
-* Render
-
----
-
-# Expected Learning Outcomes
-
-By completing this project, you will gain experience in:
-
-* Building production-style AI systems
-* Retrieval-Augmented Generation
-* LangChain pipelines
-* Vector databases
-* LLM integration
-* Prompt engineering
-* Streamlit application development
-* Git and GitHub workflows
-* AI application deployment
-
----
-
-# Resume Description
-
-Built an AI-powered Document Question Answering System using Retrieval-Augmented Generation (RAG). Developed an end-to-end pipeline for document ingestion, text chunking, embedding generation, vector storage using FAISS, semantic retrieval, and context-aware response generation using Large Language Models. Deployed an interactive Streamlit application enabling natural language querying across uploaded documents.
-
----
-
-# Author
-
-Vaishnavi
-
-B.Tech CSE (AI & Data Engineering)
-
-Aspiring Data Scientist & AI Engineer
-
+Built as part of the **2nd Year B.Tech CSE-AIDE Internship Program (2026).**
+````
