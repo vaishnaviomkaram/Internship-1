@@ -128,7 +128,7 @@ The system will be upgraded to support multi-document reasoning. Users will be a
 
 This foundational project is designed to scale into the 3rd-year **E3 (Enterprise Unstructured Data RAG)** problem statement.
 
-> **View the full roadmap here:** *3rd Year Roadmap (Coming Soon)*
+> **View the full roadmap here:** in docs/*3rd Year Roadmap (Coming Soon)*
 
 ---
 
