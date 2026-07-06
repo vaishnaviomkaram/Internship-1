@@ -46,3 +46,5 @@ Uploaded an empty sample.txt placeholder file to the workspace data root to serv
 Saturday (04 July 2026) - Week 1 deliverables submission
 Uploaded all the week 1 deliverables in the form of docs/design_doc.md , README.md and raised the issue on github as mentioned in the internship docs 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+created the core logic for frontend UI in streamlit now the user can actually use the whole application , the only thing needed now is api_key in the .env file to run and get results , half of the project is done here.
