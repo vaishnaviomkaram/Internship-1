@@ -48,3 +48,4 @@ Uploaded all the week 1 deliverables in the form of docs/design_doc.md , README.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 created the core logic for frontend UI in streamlit now the user can actually use the whole application , the only thing needed now is api_key in the .env file to run and get results , half of the project is done here.
+updated the rag pipeline to make it to use external API for embeddings rather than local to save space ( might drop in future due to very low credit quota provided each day)
