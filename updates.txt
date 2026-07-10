@@ -51,3 +51,4 @@ created the core logic for frontend UI in streamlit now the user can actually us
 updated the rag pipeline to make it to use external API for embeddings rather than local to save space ( might drop in future due to very low credit quota provided each day)
 today , did debugging, reinstalled libs , tested the prototype by uploading files and getting the query , and studied the concepts of streamlit
 made prominent changes with respect to the rag_pipeline , now it features a more better chat feature
+started working on the mini extention , added more stuff to the UI and fixed bugs like not being able to chat concurrently while seeing previous chat messages
