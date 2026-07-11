@@ -4,7 +4,7 @@
 
 **Author:** Vaishnavi  
 **Segment:** Foundations of Applied Machine Learning  
-**Problem Statement Code:** I2 (Document Q&A — RAG over a Focused Corpus)[cite: 3]
+**Problem Statement Code:** I2 (Document Q&A — RAG over a Focused Corpus)
 
 ---
 
@@ -33,11 +33,11 @@ Manually searching through massive academic textbooks, research papers, or regul
 
 ### Week 1: Data Ingestion & Retrieval Strategy
 
-* **Citation Integrity Requires Early Mapping:** I learned that tracking inline citations downstream depends entirely on preserving document structures immediately during ingestion. By injecting 1-indexed page markers directly into the raw dictionary layers using `fitz` (PyMuPDF), I ensured that when the text is split later, every single child chunk inherits its exact parent page number[cite: 1].
-* **Semantic Boundaries > Arbitrary Cutoffs:** I initially thought chunking just meant splitting text every 1,000 characters. By implementing LangChain's `RecursiveCharacterTextSplitter`, I learned how to cascade through structural delimiters (`\n\n`, then `\n`, then spaces) to minimize semantic fracture[cite: 1].
-* **The Pitfalls of "Dirty" Document Layouts:** Real-world PDFs are messy. They contain blank pages, weird structural layouts, and invisible whitespace characters. I learned that introducing strict `.strip()` validation and skipping empty pages during the extraction phase prevents empty or useless chunks from bloating the vector index[cite: 1].
-* **Modularization and Local Persistence:** Moving from a single massive script to a modular architecture (`document_processor.py`, `vector_store.py`, `rag_pipeline.py`) made testing infinitely easier[cite: 1]. Furthermore, pivoting to **Chroma** taught me how local vector persistence works (`persist_directory="./vectorstore"`)[cite: 1].
-* **The Necessity of Hybrid Retrieval:** I realized that pure vector similarity (Dense search via BGE-Small) is great for conceptual questions but terrible at finding specific variable names or exact terminology. Wiring up the LangChain `EnsembleRetriever` taught me how to marry dense semantic search with sparse lexical search (`BM25Retriever`) utilizing balanced 0.5/0.5 weights to get the best of both worlds[cite: 1].
+* **Citation Integrity Requires Early Mapping:** I learned that tracking inline citations downstream depends entirely on preserving document structures immediately during ingestion. By injecting 1-indexed page markers directly into the raw dictionary layers using `fitz` (PyMuPDF), I ensured that when the text is split later, every single child chunk inherits its exact parent page number.
+* **Semantic Boundaries > Arbitrary Cutoffs:** I initially thought chunking just meant splitting text every 1,000 characters. By implementing LangChain's `RecursiveCharacterTextSplitter`, I learned how to cascade through structural delimiters (`\n\n`, then `\n`, then spaces) to minimize semantic fracture.
+* **The Pitfalls of "Dirty" Document Layouts:** Real-world PDFs are messy. They contain blank pages, weird structural layouts, and invisible whitespace characters. I learned that introducing strict `.strip()` validation and skipping empty pages during the extraction phase prevents empty or useless chunks from bloating the vector index.
+* **Modularization and Local Persistence:** Moving from a single massive script to a modular architecture (`document_processor.py`, `vector_store.py`, `rag_pipeline.py`) made testing infinitely easier. Furthermore, pivoting to **Chroma** taught me how local vector persistence works (`persist_directory="./vectorstore"`).
+* **The Necessity of Hybrid Retrieval:** I realized that pure vector similarity (Dense search via BGE-Small) is great for conceptual questions but terrible at finding specific variable names or exact terminology. Wiring up the LangChain `EnsembleRetriever` taught me how to marry dense semantic search with sparse lexical search (`BM25Retriever`) utilizing balanced 0.5/0.5 weights to get the best of both worlds.
 
 ---
 
