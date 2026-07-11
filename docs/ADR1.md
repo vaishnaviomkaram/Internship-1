@@ -2,7 +2,7 @@
 
 ## 1. Context
 
-Our application requires a robust Large Language Model (LLM) to synthesize answers based on retrieved document chunks (RAG) and generate strictly formatted JSON quizzes[cite: 1, 3]. Initially, the architectural plan aimed to use external APIs for the entire pipeline to minimize local overhead. However, early testing using Google's text-embedding-004 (Embedding 2) API resulted in rapid quota exhaustion after only a few initial requests, making cloud-based embeddings highly unreliable for heavy document chunking. 
+Our application requires a robust Large Language Model (LLM) to synthesize answers based on retrieved document chunks (RAG) and generate strictly formatted JSON quizzes. Initially, the architectural plan aimed to use external APIs for the entire pipeline to minimize local overhead. However, early testing using Google's text-embedding-004 (Embedding 2) API resulted in rapid quota exhaustion after only a few initial requests, making cloud-based embeddings highly unreliable for heavy document chunking. 
 
 To build a sustainable architecture under strict resource constraints, we had to evaluate where to run local assets versus cloud endpoints. Local LLMs require significant disk space, high VRAM, and heavy computational resources which slow down the rapid prototyping phase and strain local development hardware. 
 
