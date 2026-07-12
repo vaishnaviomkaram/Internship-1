@@ -67,3 +67,6 @@ Started working on the mini-extension and added new components to the UI. Fixed 
 
 Saturday (11 July 2026) - Week 2 deliverables submission
 Uploaded all the week 1 deliverables in the form of docs/ADR1 , README.md updated with learning this week expanded section and raised the issue on github as mentioned in the internship docs
+
+------------------------------------------------------
+thinking of changing the file structure of the project and add new changes
