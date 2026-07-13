@@ -69,4 +69,6 @@ Saturday (11 July 2026) - Week 2 deliverables submission
 Uploaded all the week 1 deliverables in the form of docs/ADR1 , README.md updated with learning this week expanded section and raised the issue on github as mentioned in the internship docs
 
 ------------------------------------------------------
-thinking of changing the file structure of the project and add new changes
+thinking of changing the file structure of the project and add new changes , 
+took rest today due to illness , learnt more about streamlit like st.tabs and how i can manage states as well as more on how to create custom dynamic UI that would render via html to use in new MCQ section
+
