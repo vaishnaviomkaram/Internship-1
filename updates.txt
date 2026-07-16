@@ -72,5 +72,5 @@ Uploaded all the week 1 deliverables in the form of docs/ADR1 , README.md update
 thinking of changing the file structure of the project and add new changes , 
 took rest today due to illness , learnt more about streamlit like st.tabs and how i can manage states as well as more on how to create custom dynamic UI that would render via html to use in new MCQ section ,
 implemented compare.py which is a part of mini extention , used to compare two docs , updated the prompt for it aswell to make it not hallucinate or provide any kind of code or any irrelevant stuff, basically stricting the guardrails more to prevent exploitation.
-
+Added the evaluation logic to make it such that user can evaluate the response provided by the LLM
 
