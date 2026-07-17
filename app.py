@@ -1,351 +1,317 @@
 import os
 import json
+import time
 import streamlit as st
 from dotenv import load_dotenv
 
-from src.document_processor import DocumentProcessor
-from src.vector_store import VectorStoreManager
-from src.rag_pipeline import RAGPipeline
+# Modular imports
+from src.ingest import DocumentIngestor
+from src.chunk import DocumentChunker
+from src.embed import EmbeddingManager
+from src.retrieve import RetrievalEngine
+from src.generate import RAGGenerator
+from src.compare import DocumentComparator
+from src.eval import RAGEvaluator
 
-# Load API keys
 load_dotenv()
 
-# --- Page Configuration & Styling ---
-st.set_page_config(
-    page_title="EduPulse AI - AskMyBook Studio", 
-    page_icon="🎓", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="StudyBuddy AI (I2)", page_icon="🎓", layout="wide")
 
-# Custom injection for professional CSS polish
-st.markdown("""
-    <style>
-    .metric-card {
-        background-color: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        padding: 8px 16px;
-        border-radius: 4px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- Global Configurations ---
 BASE_VECTOR_DIR = "vectorstores"
 DATA_DIR = "data"
 os.makedirs(BASE_VECTOR_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
-def get_cached_books():
-    if not os.path.exists(BASE_VECTOR_DIR):
-        return []
-    return [d for d in os.listdir(BASE_VECTOR_DIR) if os.path.isdir(os.path.join(BASE_VECTOR_DIR, d))]
+# ==========================================
+# ISOLATED SESSION STATE
+# ==========================================
+# Each mode gets its own dictionary for vector paths to prevent cross-mode leakage
+modes = ["chat", "compare", "quiz", "eval"]
+for mode in modes:
+    if f"{mode}_paths" not in st.session_state: st.session_state[f"{mode}_paths"] = {}
+    
+if "chat_messages" not in st.session_state: st.session_state.chat_messages = []
+if "compare_messages" not in st.session_state: st.session_state.compare_messages = []
+if "quiz_data" not in st.session_state: st.session_state.quiz_data = None
+if "quiz_submitted" not in st.session_state: st.session_state.quiz_submitted = False
+if "user_answers" not in st.session_state: st.session_state.user_answers = {}
 
-# --- 🚀 PERFORMANCE FIX: CACHE THE AI ENGINE IN MEMORY ---
-# This prevents the app from re-loading HuggingFace Embeddings on every single click!
-@st.cache_resource(show_spinner="Initializing AI Engine...")
-def load_ai_engine(book_name):
-    v_path = os.path.join(BASE_VECTOR_DIR, book_name)
-    v_manager = VectorStoreManager(persist_directory=v_path)
-    vector_store = v_manager.load_vector_store()
-    rag_pipeline = RAGPipeline(vector_store=vector_store)
-    return vector_store, rag_pipeline
+# ==========================================
+# HELPER: PROCESS & INDEX
+# ==========================================
+def process_files(files, mode_key):
+    processed_count = 0
+    for up_file in files:
+        safe_name = up_file.name.replace(" ", "_").replace(".pdf", "")
+        target_vector_path = os.path.join(BASE_VECTOR_DIR, safe_name)
+        
+        # Register to this specific mode's memory
+        if safe_name not in st.session_state[f"{mode_key}_paths"]:
+            # Only do heavy lifting if not on disk
+            if not os.path.exists(target_vector_path):
+                with st.status(f"Processing {up_file.name}...", expanded=True) as status:
+                    temp_path = os.path.join(DATA_DIR, up_file.name)
+                    with open(temp_path, "wb") as f: f.write(up_file.getbuffer())
+                    status.update(label="Extracting text...")
+                    raw_pages = DocumentIngestor().parse_pdf(temp_path)
+                    status.update(label="Chunking...")
+                    chunks = DocumentChunker().chunk_pages(raw_pages)
+                    status.update(label="Embedding...")
+                    EmbeddingManager(persist_directory=target_vector_path).create_vector_store(chunks)
+                    status.update(label="Done!", state="complete")
+                    
+            st.session_state[f"{mode_key}_paths"][safe_name] = target_vector_path
+            processed_count += 1
+            
+    if processed_count > 0:
+        st.success(f"✅ Indexed {processed_count} doc(s) for {mode_key.upper()}!")
+        time.sleep(1.5)
+        st.rerun()
+    elif len(files) > 0:
+        st.info("Already indexed for this mode.")
 
-# --- Initialize Core Session States ---
-if "current_book" not in st.session_state:
-    st.session_state.current_book = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "quiz_data" not in st.session_state:
-    st.session_state.quiz_data = None
-if "quiz_graded" not in st.session_state:
-    st.session_state.quiz_graded = False
-if "user_answers" not in st.session_state:
-    st.session_state.user_answers = {}
-if "doc_stats" not in st.session_state:
-    st.session_state.doc_stats = {}
-
-# --- Sidebar: Workspace & Document Lifecycle Management ---
+# ==========================================
+# SIDEBAR: NAVIGATION & UPLOADS
+# ==========================================
 with st.sidebar:
-    # Fixed Brand Header
-    st.markdown(
-        """
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-            <img src="https://img.icons8.com/fluency/48/education.png" width="40">
-            <h2 style="margin: 0; font-size: 1.4rem;">EduPulse AI</h2>
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
-    st.caption("Advanced Academic RAG Environment")
+    st.title("🎓 StudyBuddy AI")
+    st.caption("Strictly isolated workspaces.")
     st.divider()
     
-    st.subheader("📚 Book Workspace")
-    cached_books = get_cached_books()
-    
-    workspace_mode = st.radio(
-        "Workspace Source", 
-        ["Select From Cache", "Process New Book"],
-        index=0 if cached_books else 1
+    # Navigation Menu
+    mode = st.radio(
+        "Select Workspace",
+        ["💬 Chat", "⚖️ Compare", "📝 Quiz", "🎯 Eval"],
+        label_visibility="collapsed",
+        horizontal=False
     )
     
-    if workspace_mode == "Select From Cache" and cached_books:
-        selected_book = st.selectbox("Choose a cached book:", cached_books)
-        if st.button("🔌 Load Selected Workspace", use_container_width=True):
-            st.session_state.current_book = selected_book
-            st.session_state.messages = []  
-            st.session_state.quiz_data = None
-            st.session_state.quiz_graded = False
-            st.session_state.user_answers = {}
-            st.rerun()
+    st.divider()
+    
+    # Dynamic Uploaders based on Mode
+    if mode == "💬 Chat":
+        st.subheader("📂 Chat Library")
+        chat_files = st.file_uploader("Upload PDFs", type=["pdf"], accept_multiple_files=True, key="chat_up")
+        if st.button("✨ Process & Index", key="btn_chat", disabled=not chat_files, use_container_width=True):
+            process_files(chat_files, "chat")
+            
+    elif mode == "⚖️ Compare":
+        st.subheader("⚖️ Comparison Setup")
+        c1, c2 = st.columns(2)
+        with c1: f_x = st.file_uploader("Doc X", type=["pdf"], key="comp_x")
+        with c2: f_y = st.file_uploader("Doc Y", type=["pdf"], key="comp_y")
+        if st.button("✨ Process Both", key="btn_comp", disabled=not (f_x and f_y), use_container_width=True):
+            process_files([f for f in [f_x, f_y] if f], "compare")
+            
+    elif mode == "📝 Quiz":
+        st.subheader("📂 Quiz Source")
+        quiz_file = st.file_uploader("Upload Textbook", type=["pdf"], key="quiz_up")
+        if st.button("✨ Process & Index", key="btn_quiz", disabled=not quiz_file, use_container_width=True):
+            process_files([quiz_file], "quiz")
+            
+    elif mode == "🎯 Eval":
+        st.subheader("📂 Eval Source")
+        eval_file = st.file_uploader("Upload Textbook", type=["pdf"], key="eval_up")
+        if st.button("✨ Process & Index", key="btn_eval", disabled=not eval_file, use_container_width=True):
+            process_files([eval_file], "eval")
+
+    st.divider()
+    
+    # Active Library Display
+    st.subheader("📚 Active Docs")
+    current_paths = st.session_state.get(f"{mode.split()[-1].lower().strip('💬⚖️📝🎯')}_paths", {})
+    # Clean key extraction for display
+    clean_mode = mode.split()[-1].lower()
+    if clean_mode not in st.session_state: 
+        # Fallback mapping
+        mapping = {"💬 Chat": "chat", "⚖️ Compare": "compare", "📝 Quiz": "quiz", "🎯 Eval": "eval"}
+        clean_mode = mapping.get(mode, "chat")
+        
+    active_docs = st.session_state[f"{clean_mode}_paths"].keys()
+    if active_docs:
+        for doc in active_docs:
+            st.markdown(f"✅ **{doc.replace('_', ' ')}**")
     else:
-        if workspace_mode == "Select From Cache":
-            st.info("No cached workspaces found. Please upload a new book.")
-            
-        uploaded_file = st.file_uploader("Upload Book PDF", type=["pdf"])
-        if uploaded_file is not None:
-            safe_filename = uploaded_file.name.replace(" ", "_").replace(".", "_")
-            target_vector_path = os.path.join(BASE_VECTOR_DIR, safe_filename)
-            
-            if st.button("⚡ Process & Index Book", use_container_width=True):
-                with st.status("Ingesting text layers...", expanded=True) as status:
-                    temp_path = os.path.join(DATA_DIR, uploaded_file.name)
-                    with open(temp_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    
-                    status.update(label="Splitting document chunks...")
-                    processor = DocumentProcessor(chunk_size=1000, chunk_overlap=200)
-                    raw_pages = processor.load_pdf(temp_path)
-                    chunks = processor.chunk_documents(raw_pages)
-                    
-                    status.update(label="Generating BGE semantic embeddings...")
-                    v_manager = VectorStoreManager(persist_directory=target_vector_path)
-                    v_manager.create_vector_store(chunks)
-                    
-                    st.session_state.doc_stats[safe_filename] = {
-                        "pages": len(raw_pages),
-                        "chunks": len(chunks),
-                        "filename": uploaded_file.name
-                    }
-                    
-                    status.update(label="Workspace compiled!", state="complete")
-                    
-                st.session_state.current_book = safe_filename
-                st.session_state.messages = []
-                st.session_state.quiz_data = None
-                st.session_state.quiz_graded = False
-                st.session_state.user_answers = {}
-                st.rerun()
-
+        st.info("No documents active.")
+        
     st.divider()
-    st.subheader("⚙️ Engine Parameters")
-    st.session_state.memory_window = st.slider("Chat Context Window", min_value=2, max_value=10, value=4)
+    if st.button("🔄 Reset Workspace", use_container_width=True):
+        st.session_state[f"{clean_mode}_paths"] = {}
+        if clean_mode == "chat": st.session_state.chat_messages = []
+        if clean_mode == "compare": st.session_state.compare_messages = []
+        if clean_mode == "quiz": 
+            st.session_state.quiz_data = None
+            st.session_state.quiz_submitted = False
+        st.rerun()
 
-# --- Main Application Shell ---
-if not st.session_state.current_book:
-    st.info("👋 Welcome! Please select a cached book workspace or upload a new textbook in the sidebar to begin.")
-else:
-    active_name = st.session_state.current_book.replace("_pdf", ".pdf").replace("_", " ")
-    st.subheader(f"📖 Active Workspace: {active_name}")
-    
-    # ⚡ Load the AI models instantly using Streamlit Cache ⚡
-    try:
-        vector_store, rag_pipeline = load_ai_engine(st.session_state.current_book)
-    except Exception as e:
-        st.error(f"Error initializing AI engine: {e}")
-        st.stop()
-        
-    tab_chat, tab_quiz, tab_analytics = st.tabs([
-        "💬 Interactive Study Chat", 
-        "📝 Real-time Practice Quiz", 
-        "📊 Document Insights & Analytics"
-    ])
-    
-    # ==========================================
-    # TAB 1: INTERACTIVE STUDY CHAT
-    # ==========================================
-    with tab_chat:
-        st.markdown("#### Conversational Deep-Dive")
-        
-        chat_container = st.container(height=450, border=True)
-        
-        with chat_container:
-            if not st.session_state.messages:
-                st.caption("_No messages exchanged yet. Ask a specific question down below to engage the book context._")
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-        
-        if user_query := st.chat_input("Ask a question about your book..."):
-            with chat_container:
-                with st.chat_message("user"):
-                    st.markdown(user_query)
+# ==========================================
+# MAIN CONTENT AREA
+# ==========================================
+
+# --- MODE 1: CHAT ---
+if mode == "💬 Chat":
+    st.header("💬 Document Q&A")
+    if not st.session_state.chat_paths:
+        st.info("👈 Please upload and process a document in the sidebar to start chatting.")
+    else:
+        for msg in st.session_state.chat_messages:
+            with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-            st.session_state.messages.append({"role": "user", "content": user_query})
-            
-            with st.spinner("Analyzing text pages..."):
-                try:
-                    history_context = ""
-                    recent_turns = st.session_state.messages[-st.session_state.memory_window:]
-                    for turn in recent_turns[:-1]:
-                        history_context += f"{turn['role'].capitalize()}: {turn['content']}\n"
+        if prompt := st.chat_input("Ask a question..."):
+            st.session_state.chat_messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"): st.markdown(prompt)
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    docs = []
+                    active_books = list(st.session_state.chat_paths.keys())
+                    k_per_book = max(2, 6 // len(active_books))
+                    for book in active_books:
+                        v_path = st.session_state.chat_paths[book]
+                        vs = EmbeddingManager(persist_directory=v_path).load_vector_store()
+                        retriever = RetrievalEngine(vs).get_hybrid_retriever(k=k_per_book)
+                        docs.extend(retriever.invoke(prompt))
                     
-                    retriever = rag_pipeline._setup_hybrid_retriever(search_kwargs={"k": 4})
-                    retrieved_docs = retriever.invoke(user_query)
-                    
-                    context_str = "\n\n".join([
-                        f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}" 
-                        for doc in retrieved_docs
-                    ])
-                    
-                    # 🚀 FIX: Strict instruction added to block JSON formatting
-                    prompt = f"""
-                    You are an expert AI Study Assistant. Answer the user's question accurately using ONLY the context provided below.
-                    
-                    CRITICAL INSTRUCTION: Provide your answer in conversational, readable Markdown text. 
-                    DO NOT output JSON. DO NOT format your response as a JSON array or object.
-                    
-                    Conversational History Context:
-                    {history_context}
-                    
-                    Document Source Context:
-                    {context_str}
-                    
-                    Question: {user_query}
-                    Answer:
-                    """
-                    
-                    response = rag_pipeline.llm.invoke(prompt)
-                    bot_response = response.content
-                    
-                except Exception as e:
-                    bot_response = f"⚠️ RAG Pipeline Error encountered: {str(e)}"
-            
-            with chat_container:
-                with st.chat_message("assistant"):
-                    st.markdown(bot_response)
-            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+                    docs = docs[:6] 
+                    context = "\n\n".join([f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}" for doc in docs])
+                    history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_messages[-4:-1]])
+                    generator = RAGGenerator()
+                    answer = generator.generate_answer(prompt, context, history)
+                    st.markdown(answer)
+            st.session_state.chat_messages.append({"role": "assistant", "content": answer})
             st.rerun()
 
-    # ==========================================
-    # TAB 2: REAL-TIME PRACTICE QUIZ
-    # ==========================================
-    with tab_quiz:
-        st.markdown("#### Synthetic Knowledge Assessment")
+# --- MODE 2: COMPARE ---
+elif mode == "⚖️ Compare":
+    st.header("⚖️ X vs Y Comparison")
+    if len(st.session_state.compare_paths) != 2:
+        st.info("👈 Please upload and process **exactly two** documents in the sidebar to compare.")
+    else:
+        books = list(st.session_state.compare_paths.keys())
+        st.caption(f"Comparing: **{books[0].replace('_', ' ')}** vs **{books[1].replace('_', ' ')}**")
         
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            quiz_topic = st.text_input("Enter target topic focus:", placeholder="e.g., Database Indexing")
-        with c2:
-            quiz_count = st.slider("Question Count", min_value=2, max_value=8, value=3)
+        for msg in st.session_state.compare_messages:
+            with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-        if st.button("🔥 Generate Practice Quiz", use_container_width=True):
-            if not quiz_topic.strip():
-                st.warning("Please specify a topic.")
-            else:
-                with st.spinner("Synthesizing questions..."):
-                    try:
-                        quiz_data, _ = rag_pipeline.generate_quiz(topic=quiz_topic, num_questions=quiz_count)
-                        st.session_state.quiz_data = quiz_data
-                        st.session_state.quiz_graded = False
-                        st.session_state.user_answers = {}
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Quiz Generation Failure: {e}")
-                        
-        st.divider()
-        
-        if st.session_state.quiz_data:
-            with st.form(key="quiz_evaluation_form"):
-                current_answers = {}
-                
-                for i, q in enumerate(st.session_state.quiz_data):
-                    st.markdown(f"**Q{i+1}: {q['question']}**")
+        if prompt := st.chat_input("What's the difference regarding...?"):
+            st.session_state.compare_messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"): st.markdown(prompt)
+            with st.chat_message("assistant"):
+                with st.spinner("Comparing..."):
+                    v1_path = st.session_state.compare_paths[books[0]]
+                    v2_path = st.session_state.compare_paths[books[1]]
+                    vs1 = EmbeddingManager(persist_directory=v1_path).load_vector_store()
+                    vs2 = EmbeddingManager(persist_directory=v2_path).load_vector_store()
+                    r1 = RetrievalEngine(vs1).get_hybrid_retriever(k=3)
+                    r2 = RetrievalEngine(vs2).get_hybrid_retriever(k=3)
+                    docs1, docs2 = r1.invoke(prompt), r2.invoke(prompt)
+                    ctx1 = "\n\n".join([f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}" for doc in docs1])
+                    ctx2 = "\n\n".join([f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}" for doc in docs2])
                     
-                    saved_choice = st.session_state.user_answers.get(i, None)
-                    default_idx = q['options'].index(saved_choice) if saved_choice in q['options'] else None
-                    
-                    chosen_option = st.radio(
-                        f"Select Option for Q{i+1}",
-                        options=q['options'],
-                        index=default_idx,
-                        key=f"mcq_radio_{i}",
-                        label_visibility="collapsed"
-                    )
-                    current_answers[i] = chosen_option
-                    
-                    if st.session_state.quiz_graded:
-                        user_ans = st.session_state.user_answers.get(i)
-                        correct_ans = q['answer']
-                        
-                        if user_ans == correct_ans:
-                            st.success(f"✨ **Correct!**")
-                        else:
-                            st.error(f"❌ **Incorrect Selection**")
-                            st.markdown(f"* **Correct Answer:** `{correct_ans}`")
-                        
-                        st.info(f"💡 **Explanation:** {q['explanation']}")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                
-                if not st.session_state.quiz_graded:
-                    if st.form_submit_button("🏁 Submit Answers for Review", use_container_width=True):
-                        st.session_state.user_answers = current_answers
-                        st.session_state.quiz_graded = True
-                        st.rerun()
-                else:
-                    if st.form_submit_button("🔄 Clear Review State & Re-take", use_container_width=True):
-                        st.session_state.quiz_graded = False
-                        st.session_state.user_answers = {}
-                        st.rerun()
-                        
-            if st.session_state.quiz_graded:
-                total = len(st.session_state.quiz_data)
-                correct_count = sum([1 for i, q in enumerate(st.session_state.quiz_data) if st.session_state.user_answers.get(i) == q['answer']])
-                score_pct = int((correct_count / total) * 100)
-                
-                if score_pct >= 70:
-                    st.balloons()
-                st.metric(label="Overall Performance Rating", value=f"{correct_count} / {total}", delta=f"{score_pct}% Mastery")
+                    generator = RAGGenerator()
+                    comparator = DocumentComparator(generator.llm)
+                    comp_answer = comparator.compare(prompt, ctx1, books[0], ctx2, books[1])
+                    st.markdown(comp_answer)
+            st.session_state.compare_messages.append({"role": "assistant", "content": comp_answer})
+            st.rerun()
 
-    # ==========================================
-    # TAB 3: DOCUMENT INSIGHTS
-    # ==========================================
-    with tab_analytics:
-        st.markdown("#### Deep Vector Database Insights")
+# --- MODE 3: QUIZ ---
+elif mode == "📝 Quiz":
+    st.header("📝 Practice Quiz")
+    if not st.session_state.quiz_paths:
+        st.info("👈 Please upload and process a textbook in the sidebar.")
+    else:
+        q_name = list(st.session_state.quiz_paths.keys())[0]
+        st.caption(f"Source: **{q_name.replace('_', ' ')}**")
         
-        col1, col2, col3 = st.columns(3)
-        try:
-            db_data = vector_store.get()
-            total_db_chunks = len(db_data.get('documents', []))
-        except:
-            total_db_chunks = "N/A"
+        col1, col2 = st.columns([3, 1])
+        with col1: topic = st.text_input("Topic:")
+        with col2: num_q = st.number_input("Questions", 1, 10, 3)
             
-        stats = st.session_state.doc_stats.get(st.session_state.current_book, {"pages": "Active", "chunks": total_db_chunks})
-        
-        with col1:
-            st.markdown(f"<div class='metric-card'>🛸 <b>Indexing Mode</b><br><h2>Hybrid RAG</h2><small>Dense + BM25</small></div>", unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"<div class='metric-card'>📄 <b>Document Length</b><br><h2>{stats.get('pages', 'Active')}</h2><small>Total Raw Text Pages</small></div>", unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"<div class='metric-card'>🧩 <b>Database Nodes</b><br><h2>{total_db_chunks}</h2><small>Calculated Source Chunks</small></div>", unsafe_allow_html=True)
-            
-        st.markdown("---")
-        st.markdown("### 🔍 Embedded Workspace Data Preview")
-        
-        if total_db_chunks != "N/A" and total_db_chunks > 0:
-            preview_limit = min(5, total_db_chunks)
-            for index in range(preview_limit):
-                with st.expander(f"Chunk Node #{index + 1} - Source: Page {db_data['metadatas'][index].get('page', 'Unknown')}"):
-                    st.text_area("Chunk Content Preview", value=db_data['documents'][index], height=120, disabled=True, key=f"chunk_text_{index}")
-        else:
-            st.info("No chunk logs could be extracted.")
+        if st.button("Generate Quiz", use_container_width=True):
+            if topic:
+                with st.spinner("Generating..."):
+                    v_path = st.session_state.quiz_paths[q_name]
+                    vs = EmbeddingManager(persist_directory=v_path).load_vector_store()
+                    retriever = RetrievalEngine(vs).get_hybrid_retriever(k=5)
+                    docs = retriever.invoke(topic)
+                    context = "\n\n".join([f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}" for doc in docs])
+                    generator = RAGGenerator()
+                    try:
+                        quiz_res = generator.generate_quiz(topic, context, int(num_q))
+                        if isinstance(quiz_res, dict) and "error" in quiz_res:
+                            st.warning(quiz_res["error"])
+                        else:
+                            st.session_state.quiz_data = quiz_res
+                            st.session_state.user_answers = {}
+                            st.session_state.quiz_submitted = False
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                        
+        if st.session_state.quiz_data and isinstance(st.session_state.quiz_data, list):
+            st.divider()
+            with st.form("quiz_form"):
+                selections = {}
+                correct = 0
+                for i, q in enumerate(st.session_state.quiz_data):
+                    st.markdown(f"**Q{i+1}. {q['question']}**")
+                    user_ans = st.session_state.user_answers.get(i) if st.session_state.get("quiz_submitted") else None
+                    chosen = st.radio(
+                        f"Opt {i}", options=q['options'], key=f"q_{i}", label_visibility="collapsed",
+                        index=q['options'].index(user_ans) if user_ans in q['options'] else None,
+                        disabled=st.session_state.get("quiz_submitted", False)
+                    )
+                    selections[i] = chosen
+                    
+                    if st.session_state.get("quiz_submitted"):
+                        if user_ans == q['answer']:
+                            st.success("✅ Correct!")
+                            correct += 1
+                        else:
+                            st.error(f"❌ Incorrect. You chose: {user_ans}")
+                        with st.expander("Explanation", expanded=True):
+                            st.info(f"**Ans:** {q['answer']}\n\n**Why:** {q['explanation']}")
+                    st.markdown("---")
+                    
+                if not st.session_state.get("quiz_submitted"):
+                    if st.form_submit_button("Submit", use_container_width=True):
+                        valid = {k: v for k, v in selections.items() if v}
+                        if len(valid) < len(st.session_state.quiz_data):
+                            st.warning("Answer all questions.")
+                        else:
+                            st.session_state.user_answers = valid
+                            st.session_state.quiz_submitted = True
+                            st.rerun()
+                else:
+                    st.metric("Score", f"{correct}/{len(st.session_state.quiz_data)}")
+                    if st.form_submit_button("Reset", use_container_width=True):
+                        st.session_state.quiz_data = None
+                        st.session_state.quiz_submitted = False
+                        st.rerun()
+
+# --- MODE 4: EVAL ---
+elif mode == "🎯 Eval":
+    st.header("🎯 RAG Evaluation")
+    if not st.session_state.eval_paths:
+        st.info("👈 Please upload and process a textbook in the sidebar.")
+    else:
+        e_name = list(st.session_state.eval_paths.keys())[0]
+        st.caption(f"Source: **{e_name.replace('_', ' ')}**")
+        eval_q = st.text_input("Test Question:", value="Summarize chapter 1.")
+        if st.button("Run Eval", use_container_width=True):
+            v_path = st.session_state.eval_paths[e_name]
+            vs = EmbeddingManager(persist_directory=v_path).load_vector_store()
+            retriever = RetrievalEngine(vs).get_hybrid_retriever(k=4)
+            docs = retriever.invoke(eval_q)
+            context = "\n\n".join([f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}" for doc in docs])
+            generator = RAGGenerator()
+            evaluator = RAGEvaluator(generator.llm)
+            with st.spinner("Evaluating..."):
+                ans = generator.generate_answer(eval_q, context)
+                st.info(ans)
+                scores = evaluator.evaluate_response(eval_q, ans, context)
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Correctness", f"{scores['correctness_score']}/5")
+                c2.metric("Citation", f"{scores['citation_score']}/5")
+                c3.metric("Complete", f"{scores['completeness_score']}/5")
+                st.markdown(f"**Feedback:** {scores['feedback']}")
