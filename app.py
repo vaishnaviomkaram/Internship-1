@@ -1,5 +1,4 @@
 import os
-import json
 import time
 import streamlit as st
 from dotenv import load_dotenv
@@ -14,6 +13,10 @@ from src.compare import DocumentComparator
 from src.eval import RAGEvaluator
 
 load_dotenv()
+
+if "GOOGLE_API_KEY" not in os.environ and "GOOGLE_API_KEY" in st.secrets:
+    os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+
 
 st.set_page_config(page_title="StudyBuddy AI (I2)", page_icon="🎓", layout="wide")
 
