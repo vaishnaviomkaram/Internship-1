@@ -1,84 +1,82 @@
-# ADR-001: Offloading LLM Generation to External APIs vs. Local Models
+# ADR‑001: Offloading Text Generation to Google Gemini API While Keeping Embeddings Local
 
-## 1. Context
-
-Our application requires a robust Large Language Model (LLM) to synthesize answers based on retrieved document chunks (RAG) and generate strictly formatted JSON quizzes. Initially, the architectural plan aimed to use external APIs for the entire pipeline to minimize local overhead. However, early testing using Google's text-embedding-004 (Embedding 2) API resulted in rapid quota exhaustion after only a few initial requests, making cloud-based embeddings highly unreliable for heavy document chunking. 
-
-To build a sustainable architecture under strict resource constraints, we had to evaluate where to run local assets versus cloud endpoints. Local LLMs require significant disk space, high VRAM, and heavy computational resources which slow down the rapid prototyping phase and strain local development hardware. 
-
-**Resource Constraints Analysis:**
-
-| Resource Requirement | Local LLM (e.g., 7B-8B parameters) | External API (Gemini Flash Lite) | Impact on MVP Development |
-| --- | --- | --- | --- |
-| **Disk Space** | ~4GB to 15GB+ per model | **0 MB** (Cloud Hosted) | Local storage fills up quickly during iteration. |
-| **VRAM / RAM** | 8GB - 16GB minimum | **Minimal** (Standard HTTP requests) | Local hardware stutters; background processes crash. |
-| **Processing Speed** | Slow (Tokens generated locally) | **Ultra-fast** (Cloud inference) | UI feels sluggish locally, breaking the UX. |
-| **JSON Adherence** | Inconsistent on smaller models | **Highly reliable** | Breaking JSON formats crashes the quiz generator. |
+**Status:** Accepted  
+**Date:** 2026‑07‑10  
+**Deciders:** Vaishnavi (sole developer)  
 
 ---
 
-## 2. Decision
+## Context
 
-We chose to implement a **Hybrid Inference Architecture**:
+The application must generate natural‑language answers, quiz questions, and comparative analyses based on retrieved document chunks. This requires a Large Language Model (LLM) capable of following strict formatting instructions (e.g., returning clean JSON arrays, refusing to hallucinate). Two broad options exist:
 
-1. **Local Ingestion & Embeddings:** We keep the document ingestion, parsing, and vector embeddings local. We utilize `BAAI/bge-small-en-v1.5` for embedding generation and persist the vector data locally using `Chroma`. This completely bypasses the cloud API quota exhaustion issue discovered during the prototyping phase.
-2. **External Cloud Generation:** We offload the heavy text synthesis, conversational tracking, and structural quiz generation to Google's Cloud API (`gemini-3.1-flash-lite`) via `langchain-google-genai`.
+1. Run an LLM entirely locally (e.g., Ollama with Llama‑3, Gemma, or Hugging Face pipelines).  
+2. Call a cloud‑hosted LLM API (e.g., Google Gemini, OpenAI).
 
----
-
-## 3. Consequences
-
-### Positive Impacts (The "Why")
-
-* **Infinite Local Ingestion:** By running embeddings locally via BGE-Small, we can parse large textbooks without triggering any API rate limits or credit exhaustion errors.
-
-
-* **Rapid UI Responsiveness:** Offloading the text synthesis text execution to the cloud keeps the local Streamlit application fast and responsive.
-
-
-* **Massive Storage & Compute Savings:** Bypassing local 10GB+ LLM downloads preserves local disk space and prevents application hardware crashes.
-* **Strict Format Adherence:** The Gemini engine strictly follows prompt rules (e.g., returning clean JSON arrays for the mini-extension) much better than smaller local, open-weights models.
-
-
-
-### Negative Trade-offs (The Risks)
-
-* **Internet Dependency:** The RAG pipeline will instantly fail if the host machine loses network connection or if the external API experiences downtime.
-* **Strict Credit Quotas on Generation:** We are heavily constrained by the daily free-tier credit quota provided by the generation API. High-volume testing and debugging chat sessions might be throttled, causing `429 Too Many Requests` errors.
-* **Data Privacy Boundaries:** Uploaded document context is sent to external servers, meaning highly sensitive or classified PDFs cannot be handled under this architecture without auditing Google's data retention policies.
+The embedding step, however, is called much more frequently (once per chunk, plus every query), making it cost‑sensitive. We need a strategy that balances cost, latency, deployment constraints, and capability.
 
 ---
 
-## 4. Alternatives Considered
+## Decision
 
-| Alternative Solution | Description | Reason for Rejection |
-| --- | --- | --- |
-| **Fully Cloud API Pipeline** | Running both embeddings (Embedding 2) and generation via external cloud endpoints. | **Rejected:** Cloud embedding API endpoints hit immediate limit exhaustion after a few initial setup requests, blocking document ingestion pipelines.|
-| **Fully Local LLMs (Ollama / Llama.cpp)** | Running models like Llama 3 (8B) or Gemma (2B) locally on the machine. | **Rejected:** Running them locally causes heavy system latency on standard laptops. Deploying them requires expensive cloud GPUs, which defeats the "skinny MVP" constraint. |
-| **Local Small Language Models (SLMs)** | Running ultra-tiny models (< 1B parameters) locally for text generation. | **Rejected:** SLMs struggled heavily with the strict JSON formatting required by the Quiz Generation module, returning markdown wrappers or malformed arrays that broke the UI logic.|
+**We will use the Google Gemini 3.1 Flash Lite API for all text generation tasks, while keeping embedding generation entirely local using the `BAAI/bge‑small‑en‑v1.5` model via Hugging Face.**
 
+- **Embeddings:** Processed locally with `sentence-transformers` / HuggingFace Embeddings. No API calls, no token costs, no rate limits for indexing or retrieval.  
+- **Text Generation:** The `ChatGoogleGenerativeAI` client (`langchain-google-genai`) calls `gemini-3.1-flash-lite` for:
+  - Answer generation in Q&A and compare modes  
+  - Quiz question generation (structured JSON)  
+  - LLM‑as‑a‑Judge evaluation  
 
+The model ID is hardcoded in `src/generate.py` as:
 
+```python
+ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0)
+```
 
+*Note:* During Week 2 we briefly experimented with Google’s Embedding API to offload embeddings, but abandoned it after hitting daily rate limits on the free tier after only a few test runs. The local embedding model has no such limits and fits comfortably on our target deployment hardware (Streamlit Cloud with 16 GB RAM).
 
-### Architecture Flow Diagram
+---
+
+## Consequences
+
+| Aspect | Positive | Negative / Risk |
+|--------|----------|-----------------|
+| **Cost** | Local embeddings are free; Gemini’s free tier allows generous daily quota for generation. | Heavy testing could still exhaust the free quota; beyond that, costs would accrue. |
+| **Latency** | Gemini Flash Lite responds in ~1‑2 s for typical RAG prompts. Local embedding inference is fast (<100 ms per chunk on CPU). | Network latency and occasional API slowness may degrade user experience. |
+| **Reliability** | No dependency on local GPU; the app runs in a standard Python environment. | If Gemini API is down or the key is revoked, the app cannot generate answers (though retrieval still works). |
+| **Capability** | Gemini follows strict JSON formatting and guardrail instructions much better than smaller local models (verified with quiz generation). | Relying on an external provider means we cannot fine‑tune the model for domain‑specific style. |
+| **Maintenance** | No need to update or manage local LLM weights; just use the latest API version. | API changes (deprecation, pricing) may require code updates. |
+
+---
+
+## Alternatives Considered
+
+| Alternative | Reason for Rejection |
+|-------------|----------------------|
+| **Local LLM via Ollama (Llama‑3, Gemma)** | Rejected because running a 7‑8B model on free cloud deployment platforms (e.g., Hugging Face Spaces) causes out‑of‑memory errors or unacceptable latency (>30 s per response). The models also often fail to produce strictly formatted JSON arrays for the quiz feature. |
+| **OpenAI API (GPT‑4o‑mini)** | Rejected due to cost and less generous free tier compared to Gemini. The project’s “skinny MVP” constraint did not justify a paid API while alternatives exist. |
+| **Fully local embeddings + local LLM** | Rejected for the same resource constraints as above. The combination of BGE embeddings and Gemini API hits the sweet spot: free, responsive, and deployable. |
+| **Fully cloud (Google Vertex AI Embeddings + Gemini)** | Abandoned after experimenting in Week 2 because the embedding API quota was insufficient for processing even a single textbook. Local embeddings solved this permanently. |
+
+---
+
+## Decision‑Specific Diagram
 
 ```mermaid
 graph TD
-    A[User Input: PDF] --> B[PyMuPDF & Text Splitter]
-    
-    subgraph Local_Environment [Local Environment]
-        B --> C[HuggingFace Embeddings: BAAI/bge-small-en-v1.5]
-        C --> D[(Chroma Local Vector DB)]
-        D --> E[Hybrid Ensemble Retriever: BM25 + Semantic]
+    subgraph Local Environment
+        A[PDF Documents] --> B[PyMuPDF Extract]
+        B --> C[Chunker]
+        C --> D[HuggingFace Embeddings bge-small]
+        D --> E[(Chroma Vector DB)]
     end
-    
-    subgraph External_Cloud [External Cloud: Google API]
-        E --> F[ChatGoogleGenerativeAI: gemini-3.1-flash-lite]
-        F --> G[Context & Chat History Processing]
-        G --> H[JSON / Text Generation Engine]
+
+    subgraph Cloud API
+        E --> F[Hybrid Retriever]
+        F -->|Retrieved Chunks| G[Gemini 3.1 Flash Lite]
+        G --> H[Answer / Quiz / Eval]
     end
-    
-    H --> I[Final Output: Chat Answer / JSON Quiz]
-    I --> J[Streamlit Frontend UI]
+```
+
+*Figure: The split between local (embedding + storage + retrieval) and cloud (generation). Only the final prompt with retrieved context is sent to the API, minimizing token usage.*
 ```
