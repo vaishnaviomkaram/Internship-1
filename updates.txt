@@ -25,6 +25,8 @@ Added a __main__ execution block for sandboxed testing. Simulated data ingestion
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 1st Week Progress - 
+
+
 Separating the logic of chunking, embedding and retrieval into modules and creating a RAG pipeline and also using chromadb to store the chunking and vectors locally for retrieving (even tested on huggingface), also uploaded an empty sample.txt (will be replaced with a pdf for testing) and made updates to requirements needed, included pytorch transformers libraries for embeddings as well.
 
 Monday (29 June 2026) – Modularization & Refactoring
@@ -48,6 +50,8 @@ Uploaded all the week 1 deliverables in the form of docs/design_doc.md , README.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 2nd Week Progress -
+
+
 Created the core logic for the frontend UI using Streamlit, allowing users to interact with the full application. Updated the RAG pipeline to use external APIs for embeddings to save space, refined the chat features, and started work on a mini-extension. Also conducted extensive debugging, tested file uploads, and fixed concurrent chat history bugs, successfully completing the first half of the overall project.
 
 Monday (06 July 2026) – Streamlit UI Core Logic
@@ -65,13 +69,42 @@ Implemented prominent architectural changes to the RAG pipeline, upgrading the s
 Friday (10 July 2026) – Mini-Extension & UI Bug Fixes
 Started working on the mini-extension and added new components to the UI. Fixed critical front-end bugs, specifically resolving an issue that prevented users from chatting concurrently while viewing their previous chat message history.
 
-Saturday (11 July 2026) - Week 2 deliverables submission
-Uploaded all the week 1 deliverables in the form of docs/ADR1 , README.md updated with learning this week expanded section and raised the issue on github as mentioned in the internship docs
+Saturday (12 July 2026) – Week 2 deliverables submission
+Uploaded all the week 2 deliverables in the form of docs/ADR1, README.md updated with learning this week expanded section and raised the issue on github as mentioned in the internship docs. Also completed the mid-program 1:1 with mentor.
 
-------------------------------------------------------
-thinking of changing the file structure of the project and add new changes , 
-took rest today due to illness , learnt more about streamlit like st.tabs and how i can manage states as well as more on how to create custom dynamic UI that would render via html to use in new MCQ section ,
-implemented compare.py which is a part of mini extention , used to compare two docs , updated the prompt for it aswell to make it not hallucinate or provide any kind of code or any irrelevant stuff, basically stricting the guardrails more to prevent exploitation.
-Added the evaluation logic to make it such that user can evaluate the response provided by the LLM
-changed the whole file structure and frontend , updated requirements.txt and also added all the stuff like evaluation , mini extension for comparision as well as chat functionality 
-doing the prequisites for the first version to submit by tomorrow
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+3rd Week Progress -
+
+Sunday (13 July 2026) – Rest & Architecture Planning
+Took rest due to illness. Spent light time learning more about Streamlit's st.tabs and how I can manage states as well as more on how to create custom dynamic UI that would render via HTML to use in the new MCQ section. Sketched out the new file structure on paper before implementing it.
+
+Monday (14 July 2026) – Mini-Extension Core Logic
+Implemented compare.py which is a part of the mini-extension, used to compare two documents side by side. Updated the prompt for it extensively to make it not hallucinate or provide any kind of code or any irrelevant stuff, basically tightening the guardrails to prevent exploitation. The comparator uses the same LLM instance but with a specialized prompt that forces inline citations from both documents separately.
+
+Tuesday (15 July 2026) – Evaluation Module & Guardrail Hardening
+Added the evaluation logic in eval.py to make it such that the user can evaluate the response provided by the LLM using LLM-as-a-Judge methodology. The evaluator grades on three axes: correctness, citation precision, and completeness, all on a 1-5 scale. Also hardened the guardrails across all prompts to explicitly prevent code generation and off-topic responses.
+
+Wednesday (16 July 2026) – Major Restructuring & Frontend Overhaul
+Changed the whole file structure of the project. Moved from the old monolithic naming (document_processor.py, vector_store.py, rag_pipeline.py) to clean modular names (ingest.py, chunk.py, embed.py, retrieve.py, generate.py). Updated requirements.txt with all new dependencies including rank-bm25 for hybrid retrieval and sentence-transformers for local embeddings. Completely rewrote app.py to support four isolated modes with proper session state management preventing cross-mode data leakage.
+
+Thursday (17 July 2026) – Multi-Mode UI Implementation
+Built out the full Streamlit interface with four separate workspaces accessible via sidebar radio buttons. Each mode (Chat, Compare, Quiz, Eval) has its own upload area, its own vector store paths dictionary, and its own message history. Implemented the dynamic k_per_book calculation for multi-document chat so context windows don't overflow when multiple textbooks are loaded simultaneously.
+
+Friday (18 July 2026) – Testing Suite & Deployment Preparation
+Wrote automated tests for the chunking module (test_chunk.py) and ingestion module (test_ingest.py) using pytest with proper mocking for file operations. Both tests pass successfully. Did the prerequisites for the first version to submit by tomorrow. Deployed the application on Streamlit Cloud successfully and verified all four modes work in production with the Gemini API key configured via secrets management.
+
+Saturday (19 July 2026) – Milestone 1 Submission & ADR Documentation
+Created and submitted the Milestone 1 GitHub Release tagged v1.0-m1. Wrote three comprehensive Architecture Decision Records covering: the decision to use external Gemini API with local embeddings (ADR-001), the hybrid retrieval strategy combining BM25 and dense vectors with 50/50 weights (ADR-002), and the isolated workspace state management pattern in Streamlit (ADR-003). Created the architecture diagram as a PNG and placed it in docs/. Updated README.md to meet all 12 required sections including demo link, architecture diagram, quickstart with test instructions, ADR links, mini-extension description, and known limitations.
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+3rd Week Progress -
+Sunday (20 July 2026) – Rest & Reflection Planning
+Took a rest day to recover from the Milestone 1 push. Started drafting the outline for the reflection piece (reflection.md) in my head, organizing thoughts around what tools surprised me, what I'd do differently, and how this project seeds my 3rd year roadmap. Reviewed the remaining deliverables needed for Week 4 and Milestone 2.
+
+Monday (21 July 2026) – Quiz Mode Polish & Edge Case Handling
+Fixed several edge cases in the quiz generation mode. The LLM sometimes wraps JSON in markdown code blocks despite explicit instructions not to, so implemented a robust .replace('```json', '').replace('```', '').strip() cleanup pipeline. Added error handling for when the LLM returns a topic-not-found error dictionary instead of a quiz array. The quiz form now properly disables radio buttons after submission and displays correct/incorrect feedback with explanations. Fixed the form submission validation so users cannot submit without answering all questions.
+
+Tuesday (22 July 2026) – Eval Mode Completion & Score Visualization
+Finalized the evaluation mode where users can test any question and get a three-axis score breakdown. The LLM-as-Judge prompt was tuned to be strict about hallucinations: if the answer contains any outside knowledge, the correctness score is forced to 1. Scores are displayed in a three-column metric layout for visual clarity. The evaluation parsing was made robust with a try-except fallback that returns zero scores instead of crashing the UI.
