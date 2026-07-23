@@ -6,7 +6,7 @@ from langchain_core.output_parsers import StrOutputParser
 class RAGGenerator:
     """Handles LLM Generation, Prompting, and Guardrails."""
     def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(model="gemma-4-31b-it", temperature=0)
+        self.llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0)
 
     def generate_answer(self, query: str, context: str, chat_history: str = "") -> str:
         prompt = PromptTemplate.from_template("""
