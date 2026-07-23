@@ -27,7 +27,7 @@ Manually searching through massive academic textbooks, research papers, or regul
 
 ## 🏗️ Architecture Diagram
 
-![Architecture Diagram](docs/architecture_diagram.png)
+![Architecture Diagram](docs/architecture_diagram.md)
 
 
 ```mermaid
